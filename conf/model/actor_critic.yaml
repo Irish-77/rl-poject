@@ -1,4 +1,4 @@
-_target_: main.ActorCriticAgent
+_target_: src.agents.actor_critic.ActorCriticAgent
 
 # General parameters
 gamma: 0.99
