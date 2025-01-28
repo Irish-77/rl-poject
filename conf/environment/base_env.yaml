@@ -1,0 +1,3 @@
+# Base environment configuration
+max_episode_steps: 1000  # default value
+reward_threshold: null  # default value

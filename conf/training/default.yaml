@@ -1,0 +1,6 @@
+num_episodes: 30000
+checkpoint_freq: 500
+video_freq: 500
+log_dir: ${hydra:run.dir}/logs
+checkpoint_dir: ${hydra:run.dir}/checkpoints
+video_dir: ${hydra:run.dir}/videos

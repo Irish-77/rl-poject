@@ -1,0 +1,3 @@
+checkpoint_path: null  # Will be set at runtime
+num_episodes: 10
+record_video: true

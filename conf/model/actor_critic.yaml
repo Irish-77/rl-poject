@@ -1,0 +1,17 @@
+_target_: main.ActorCriticAgent
+
+# General parameters
+gamma: 0.99
+
+# Optimization parameters
+policy_lr: 1e-3
+value_lr: 1e-3
+
+# Network architectures
+policy_network:
+  hidden_layers: [64, 64]
+  activation: "relu"  # Valid options as of now: "relu", "tanh", "sigmoid"
+
+value_network:
+  hidden_layers: [64, 64]
+  activation: "relu"  # Valid options as of now: "relu", "tanh", "sigmoid"

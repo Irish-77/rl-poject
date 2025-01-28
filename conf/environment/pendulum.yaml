@@ -1,0 +1,7 @@
+defaults:
+  - base_env
+
+_target_: main.PendulumEnvWrapper
+env_name: "Pendulum-v1"
+max_episode_steps: 200
+reward_threshold: -250
