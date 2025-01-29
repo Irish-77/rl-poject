@@ -1,0 +1,5 @@
+_target_: src.exploration.exploration.EpsilonGreedy
+config:
+  initial_epsilon: 1.0
+  min_epsilon: 0.01
+  decay_rate: 0.1995

@@ -3,6 +3,7 @@ defaults:
   - testing: default
   - model: actor_critic
   - environment: pendulum
+  - exploration: default
   - _self_
 
 hydra:

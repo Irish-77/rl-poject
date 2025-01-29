@@ -11,7 +11,7 @@ from src.utils.logger import Logger
 from src.agents import ActorCriticAgent
 from src.environments import PendulumEnvWrapper
 
-def train(agent, env, num_episodes=10, 
+def train(agent, env, exploration_strategy=None, num_episodes=10, 
           checkpoint_freq=100,
           video_freq=500,
           video_dir='videos',
@@ -45,12 +45,25 @@ def train(agent, env, num_episodes=10,
         policy_losses = []
         
         while not done:
-            action_numpy, action_tensor, log_prob = agent.select_action(state)
+            # Add exploration logic
+            if exploration_strategy and exploration_strategy.should_explore():
+                action_numpy = env.action_space.sample()
+                action_tensor = torch.FloatTensor(action_numpy)
+                log_prob = torch.tensor(0.0)  # dummy log prob for random actions
+            else:
+                action_numpy, action_tensor, log_prob = agent.select_action(state)
+                
             next_state, reward, terminated, truncated, info = video_env.step(action_numpy)
             done = terminated or truncated
             transitions.append((state, action_tensor.detach(), reward, next_state, done, log_prob))
             state = next_state
             episode_reward += reward
+            
+        # Update exploration strategy and get logging info
+        exploration_info = {}
+        if exploration_strategy:
+            exploration_strategy.update()
+            exploration_info = exploration_strategy.get_logging_info()
         
         value_loss, policy_loss = agent.update(transitions)
         value_losses.append(value_loss)
@@ -60,6 +73,7 @@ def train(agent, env, num_episodes=10,
             'reward': episode_reward,
             'value_loss': np.mean(value_losses),
             'policy_loss': np.mean(policy_losses),
+            **exploration_info  # Add exploration metrics to logging
         })
         
         if episode_reward > best_reward:
@@ -97,10 +111,14 @@ def main(cfg: DictConfig):
                        state_dim=obs_dim,
                        action_dim=act_dim)
 
-    # Train
+    # Create exploration strategy
+    exploration_strategy = instantiate(cfg.exploration) if "exploration" in cfg else None
+    
+    # Train with exploration
     train(
         agent=agent,
         env=env,
+        exploration_strategy=exploration_strategy,
         num_episodes=cfg.training.num_episodes,
         checkpoint_freq=cfg.training.checkpoint_freq,
         video_freq=cfg.training.video_freq,
