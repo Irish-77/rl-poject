@@ -16,8 +16,12 @@ class ReplayBuffer(Buffer):
         
     def sample(self, batch_size):
         batch = np.random.choice(len(self.buffer), batch_size)
-        states, actions, rewards, next_states, dones = zip(*[self.buffer[i] for i in batch])
-        return (torch.FloatTensor(states), 
+        # Convert list of tuples to tuple of numpy arrays first
+        batch_data = [self.buffer[i] for i in batch]
+        states, actions, rewards, next_states, dones = map(np.array, zip(*batch_data))
+        
+        # Convert numpy arrays to tensors
+        return (torch.FloatTensor(states),
                 torch.FloatTensor(actions),
                 torch.FloatTensor(rewards),
                 torch.FloatTensor(next_states),
