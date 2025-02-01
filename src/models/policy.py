@@ -1,33 +1,53 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.distributions import Normal
+
+ACTIVATION_MAP = {
+    'relu': nn.ReLU,
+    'tanh': nn.Tanh,
+    'sigmoid': nn.Sigmoid,
+    'leakyrelu': nn.LeakyReLU,
+    'elu': nn.ELU,
+    'gelu': nn.GELU
+}
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_layers, activation="relu"):
+    def __init__(self, state_dim, action_dim, hidden_layers=[64, 64], activation="relu"):
         super().__init__()
-        self.layers = nn.ModuleList()
         
-        # Map activation string to actual function - optimize later
-        activation_functions = {
-            "relu": F.relu,
-            "tanh": torch.tanh,
-            "sigmoid": torch.sigmoid
-        }
-        self.activation = activation_functions.get(activation.lower(), F.relu)
+        # Get activation function from map (case-insensitive)
+        activation = activation.lower()
+        if activation not in ACTIVATION_MAP:
+            print(f"Warning: Activation {activation} not found, using relu")
+            activation = 'relu'
+        self.activation = ACTIVATION_MAP[activation]()
         
-        in_dim = state_dim
+        # Build layers
+        layers = []
+        prev_dim = state_dim
         for hidden_dim in hidden_layers:
-            self.layers.append(nn.Linear(in_dim, hidden_dim))
-            in_dim = hidden_dim
+            layers.append(nn.Linear(prev_dim, hidden_dim))
+            layers.append(self.activation)
+            prev_dim = hidden_dim
             
-        self.mean = nn.Linear(in_dim, action_dim)
+        # Mean network
+        self.mean_net = nn.Sequential(
+            *layers,
+            nn.Linear(prev_dim, action_dim)
+        )
+        
+        # Log std parameter (learnable)
         self.log_std = nn.Parameter(torch.zeros(action_dim))
-
+        
     def forward(self, state):
-        x = state
-        for layer in self.layers:
-            x = self.activation(layer(x))
-        mean = self.mean(x)
-        std = self.log_std.exp()
-        dist = torch.distributions.Normal(mean, std)
-        return dist
+        if not isinstance(state, torch.Tensor):
+            state = torch.FloatTensor(state)
+            
+        mean = self.mean_net(state)
+        std = torch.exp(self.log_std)
+        
+        # Ensure proper broadcasting for batched inputs
+        if mean.dim() > std.dim():
+            std = std.expand_as(mean)
+            
+        return Normal(mean, std)

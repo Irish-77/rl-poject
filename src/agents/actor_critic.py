@@ -41,17 +41,19 @@ class ActorCriticAgent(Agent):
         self.episode_transitions = []
 
     def select_action(self, state):
-        # Convert state to torch if needed
         if not isinstance(state, torch.Tensor):
-            state = torch.tensor(state, dtype=torch.float32)
+            state = torch.FloatTensor(state)
+        
+        if state.dim() == 1:
+            state = state.unsqueeze(0)
         
         dist = self.policy_net(state)
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(dim=-1)
         
-        # Detach for numpy conversion, but keep original for training
-        action_numpy = torch.clip(action.detach(), -2, 2).numpy()
-        return action_numpy, action, log_prob
+        action_tensor = action.squeeze(0)  # Remove batch dimension for storage
+        action_numpy = torch.clip(action_tensor.detach(), -2, 2).numpy()
+        return action_numpy, action_tensor, log_prob
 
     def store_transition(self, transition):
         # transition: (state, action_tensor, reward, next_state, done, log_prob)
@@ -76,7 +78,7 @@ class ActorCriticAgent(Agent):
         values = torch.tensor(values, dtype=torch.float32)
         advantages = returns - values
         return returns, advantages
-
+    
     def update(self, transitions):
         """
         Using the transitions from a full episode to update policy and value.
