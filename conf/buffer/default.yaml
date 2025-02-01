@@ -1,0 +1,3 @@
+_target_: src.buffers.replay_buffer.ReplayBuffer
+capacity: 10000
+save_dir: ${hydra:runtime.output_dir}/buffer_checkpoints

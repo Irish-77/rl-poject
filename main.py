@@ -11,13 +11,15 @@ from src.utils.logger import Logger
 from src.agents import ActorCriticAgent
 from src.environments import PendulumEnvWrapper
 
-def train(agent, env, exploration_strategy=None, num_episodes=10, 
+def train(agent, env, buffer, exploration_strategy=None, num_episodes=10, 
+          batch_size=64,
           checkpoint_freq=100,
+          buffer_save_freq=100,
           video_freq=500,
           video_dir='videos',
           log_dir='logs',
-          checkpoint_dir='checkpoints'
-          ):
+          checkpoint_dir='checkpoints',
+          use_buffer=True):
     
     # Create directories if they don't exist
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -36,13 +38,12 @@ def train(agent, env, exploration_strategy=None, num_episodes=10,
     best_reward = float('-inf')
     
     for episode in range(num_episodes):
-        
         state, _ = video_env.reset()
         done = False
         episode_reward = 0.0
-        transitions = []
         value_losses = []
         policy_losses = []
+        episode_transitions = []
         
         while not done:
             # Add exploration logic
@@ -55,17 +56,28 @@ def train(agent, env, exploration_strategy=None, num_episodes=10,
                 
             next_state, reward, terminated, truncated, info = video_env.step(action_numpy)
             done = terminated or truncated
-            transitions.append((state, action_tensor.detach(), reward, next_state, done, log_prob))
+            
+            if use_buffer:
+                buffer.add(state, action_numpy, reward, next_state, done)
+            else:
+                # For on-policy algorithms, collect transitions for the episode
+                episode_transitions.append((state, action_tensor.detach(), reward, next_state, done, log_prob))
+            
             state = next_state
             episode_reward += reward
-            
+        
         # Update exploration strategy and get logging info
         exploration_info = {}
         if exploration_strategy:
             exploration_strategy.update()
             exploration_info = exploration_strategy.get_logging_info()
         
-        value_loss, policy_loss = agent.update(transitions)
+        # Update agent
+        if use_buffer:
+            value_loss, policy_loss = agent.update(buffer, batch_size)
+        else:
+            value_loss, policy_loss = agent.update(episode_transitions)
+            
         value_losses.append(value_loss)
         policy_losses.append(policy_loss)
         
@@ -82,6 +94,9 @@ def train(agent, env, exploration_strategy=None, num_episodes=10,
         
         if episode % checkpoint_freq == 0:
             agent.save_checkpoint(f'{checkpoint_dir}/checkpoint_{episode}.pt')
+        
+        if episode % buffer_save_freq == 0 and use_buffer:
+            buffer.save(episode)
         
         print(f"Episode {episode + 1} - Reward: {episode_reward:.2f}")
     
@@ -111,16 +126,23 @@ def main(cfg: DictConfig):
                        state_dim=obs_dim,
                        action_dim=act_dim)
 
+    # Create buffer only if needed
+    buffer = instantiate(cfg.buffer) if cfg.training.use_buffer else None
+
     # Create exploration strategy
     exploration_strategy = instantiate(cfg.exploration) if "exploration" in cfg else None
     
-    # Train with exploration
+    # Train with optional buffer
     train(
         agent=agent,
         env=env,
+        buffer=buffer,
         exploration_strategy=exploration_strategy,
+        use_buffer=cfg.training.use_buffer,
         num_episodes=cfg.training.num_episodes,
+        batch_size=cfg.training.batch_size,
         checkpoint_freq=cfg.training.checkpoint_freq,
+        buffer_save_freq=cfg.training.buffer_save_freq,
         video_freq=cfg.training.video_freq,
         video_dir=cfg.training.video_dir,
         log_dir=cfg.training.log_dir,

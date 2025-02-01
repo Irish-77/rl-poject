@@ -1,0 +1,6 @@
+_target_: src.buffers.prioritized_replay.PrioritizedReplayBuffer
+capacity: 100000
+alpha: 0.6
+beta: 0.4
+beta_increment: 0.001
+save_dir: ${hydra:runtime.output_dir}/buffer_checkpoints

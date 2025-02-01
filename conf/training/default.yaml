@@ -1,5 +1,8 @@
-num_episodes: 30000
+use_buffer: false 
+num_episodes: 8000
+batch_size: 64
 checkpoint_freq: 500
+buffer_save_freq: 500
 video_freq: 500
 log_dir: ${hydra:run.dir}/logs
 checkpoint_dir: ${hydra:run.dir}/checkpoints

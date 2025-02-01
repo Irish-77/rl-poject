@@ -4,6 +4,7 @@ defaults:
   - model: actor_critic
   - environment: pendulum
   - exploration: default
+  - buffer: default
   - _self_
 
 hydra:
