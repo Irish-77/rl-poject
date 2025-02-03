@@ -11,6 +11,8 @@ from src.utils.logger import Logger
 from src.agents import ActorCriticAgent
 from src.environments import PendulumEnvWrapper
 
+from src.utils.helper import get_device
+
 def train(agent, env, buffer, exploration_strategy=None, num_episodes=10, 
           batch_size=64,
           checkpoint_freq=100,
@@ -107,15 +109,7 @@ def train(agent, env, buffer, exploration_strategy=None, num_episodes=10,
 # Main
 ##############################################
 
-def get_device(device_str):
-    if device_str == 'auto':
-        if torch.cuda.is_available():
-            return torch.device('cuda')
-        elif torch.backends.mps.is_available():
-            return torch.device('mps')
-        else:
-            return torch.device('cpu')
-    return torch.device(device_str)
+
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):

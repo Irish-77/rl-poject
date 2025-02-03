@@ -4,6 +4,7 @@ import torch.optim as optim
 
 from src.agents import Agent
 from src.models import PolicyNetwork, ValueNetwork
+from src.utils.helper import get_auto_device
 
 class ActorCriticAgent(Agent):
     def __init__(
@@ -22,9 +23,7 @@ class ActorCriticAgent(Agent):
         
         # Set device
         if device == 'auto':
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 
-                                     'mps' if torch.backends.mps.is_available() else 
-                                     'cpu')
+            self.device = get_auto_device()
         else:
             self.device = torch.device(device)
         
