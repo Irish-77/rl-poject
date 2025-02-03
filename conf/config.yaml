@@ -15,3 +15,4 @@ hydra:
     subdir: ${hydra.job.num}
 
 seed: 42
+device: 'auto'  # Options: 'auto', 'cuda', 'cpu', 'mps'

@@ -14,10 +14,19 @@ class ActorCriticAgent(Agent):
         value_lr=1e-3,
         gamma=0.99,
         policy_network=None,
-        value_network=None
+        value_network=None,
+        device='auto'
     ):
         super().__init__()
         self.gamma = gamma
+        
+        # Set device
+        if device == 'auto':
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 
+                                     'mps' if torch.backends.mps.is_available() else 
+                                     'cpu')
+        else:
+            self.device = torch.device(device)
         
         # Use configuration or defaults for policy network
         policy_config = policy_network or {"hidden_layers": [64, 64], "activation": "relu"}
@@ -26,7 +35,7 @@ class ActorCriticAgent(Agent):
             action_dim=action_dim,
             hidden_layers=policy_config["hidden_layers"],
             activation=policy_config["activation"]
-        )
+        ).to(self.device)
         
         # Use configuration or defaults for value network
         value_config = value_network or {"hidden_layers": [64, 64], "activation": "relu"}
@@ -34,7 +43,7 @@ class ActorCriticAgent(Agent):
             state_dim=state_dim,
             hidden_layers=value_config["hidden_layers"],
             activation=value_config["activation"]
-        )
+        ).to(self.device)
         
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=policy_lr)
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=value_lr)
@@ -42,7 +51,9 @@ class ActorCriticAgent(Agent):
 
     def select_action(self, state):
         if not isinstance(state, torch.Tensor):
-            state = torch.FloatTensor(state)
+            state = torch.FloatTensor(state).to(self.device)
+        else:
+            state = state.to(self.device)
         
         if state.dim() == 1:
             state = state.unsqueeze(0)
@@ -52,7 +63,7 @@ class ActorCriticAgent(Agent):
         log_prob = dist.log_prob(action).sum(dim=-1)
         
         action_tensor = action.squeeze(0)  # Remove batch dimension for storage
-        action_numpy = torch.clip(action_tensor.detach(), -2, 2).numpy()
+        action_numpy = torch.clip(action_tensor.cpu().detach(), -2, 2).numpy()
         return action_numpy, action_tensor, log_prob
 
     def store_transition(self, transition):
@@ -66,16 +77,16 @@ class ActorCriticAgent(Agent):
 
         with torch.no_grad():
             for s in states:
-                s_tensor = torch.tensor(s, dtype=torch.float32)
-                values.append(self.value_net(s_tensor).item())
+                s_tensor = torch.tensor(s, dtype=torch.float32).to(self.device)
+                values.append(self.value_net(s_tensor).cpu().item())
 
         returns = []
         G = 0
         for r in reversed(rewards):
             G = r + self.gamma * G
             returns.insert(0, G)
-        returns = torch.tensor(returns, dtype=torch.float32)
-        values = torch.tensor(values, dtype=torch.float32)
+        returns = torch.tensor(returns, dtype=torch.float32).to(self.device)
+        values = torch.tensor(values, dtype=torch.float32).to(self.device)
         advantages = returns - values
         return returns, advantages
     
@@ -89,7 +100,7 @@ class ActorCriticAgent(Agent):
         advantages = advantages.unsqueeze(1)
 
         # Update Value Network
-        states = torch.tensor([t[0] for t in transitions], dtype=torch.float32)
+        states = torch.tensor([t[0] for t in transitions], dtype=torch.float32).to(self.device)
         value_preds = self.value_net(states)
         value_loss = nn.MSELoss()(value_preds, returns)
 
@@ -100,9 +111,10 @@ class ActorCriticAgent(Agent):
         # Update Policy Network
         total_policy_loss = 0
         for i, (state, action, reward, next_state, done, _) in enumerate(transitions):
-            state_tensor = torch.tensor(state, dtype=torch.float32)
+            state_tensor = torch.tensor(state, dtype=torch.float32).to(self.device)
+            action_tensor = action.to(self.device)  # Move action tensor to correct device
             dist = self.policy_net(state_tensor)
-            log_prob = dist.log_prob(action).sum(dim=-1)
+            log_prob = dist.log_prob(action_tensor).sum(dim=-1)
             total_policy_loss = total_policy_loss - log_prob * advantages[i].item()
 
         # Average the policy loss
@@ -123,11 +135,12 @@ class ActorCriticAgent(Agent):
             'value_state_dict': self.value_net.state_dict(),
             'policy_optimizer': self.policy_optimizer.state_dict(),
             'value_optimizer': self.value_optimizer.state_dict(),
+            'device': self.device,
         }
         torch.save(checkpoint, filepath)
 
     def load_checkpoint(self, filepath):
-        checkpoint = torch.load(filepath)
+        checkpoint = torch.load(filepath, map_location=self.device)
         self.policy_net.load_state_dict(checkpoint['policy_state_dict'])
         self.value_net.load_state_dict(checkpoint['value_state_dict'])
         self.policy_optimizer.load_state_dict(checkpoint['policy_optimizer'])
