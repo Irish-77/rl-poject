@@ -11,6 +11,8 @@ from src.utils.logger import Logger
 from src.agents import ActorCriticAgent
 from src.environments import PendulumEnvWrapper
 
+from src.utils.helper import get_device
+
 def train(agent, env, buffer, exploration_strategy=None, num_episodes=10, 
           batch_size=64,
           checkpoint_freq=100,
@@ -107,11 +109,17 @@ def train(agent, env, buffer, exploration_strategy=None, num_episodes=10,
 # Main
 ##############################################
 
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     # Set random seeds
     torch.manual_seed(cfg.seed)
     np.random.seed(cfg.seed)
+    
+    # Get device
+    device = get_device(cfg.device)
+    print(f"Using device: {device}")
     
     # Print resolved config
     print(OmegaConf.to_yaml(cfg))
@@ -121,10 +129,11 @@ def main(cfg: DictConfig):
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
 
-    # Create agent
+    # Create agent with device
     agent = instantiate(cfg.model, 
                        state_dim=obs_dim,
-                       action_dim=act_dim)
+                       action_dim=act_dim,
+                       device=device)
 
     # Create buffer only if needed
     buffer = instantiate(cfg.buffer) if cfg.training.use_buffer else None

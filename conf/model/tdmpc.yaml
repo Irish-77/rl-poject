@@ -1,0 +1,15 @@
+_target_: src.agents.tdmpc.TDMPC2Agent
+
+# Model architecture
+hidden_size: 256
+lr: 3e-4
+gamma: 0.99
+
+# Planning parameters
+planning_horizon: 10
+num_candidates: 100
+num_iterations: 5
+
+# These will be set automatically in main.py
+state_dim: ${state_dim}
+action_dim: ${action_dim}
